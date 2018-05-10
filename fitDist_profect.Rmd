@@ -1,0 +1,152 @@
+
+---
+title: "Defects"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Libraries
+
+
+we will need the following libraries: fitdistrplus, magrittr
+```{r libraries, include=FALSE,echo=FALSE}
+library(knitr)
+library(fitdistrplus)
+library(magrittr)
+
+```
+
+----------------------------A-D-----------------------------------------
+
+#The Data of the mullfunctions arrivals
+
+```{r}
+#  defects_AD_table <- read_excel("C:/Users/yaronnak/Downloads/defects AD.xlsx", 
+#     col_names = FALSE)
+
+filePathAD <- choose.files()
+tableAD <- read.csv(filePathAD,header=FALSE)
+```
+## 1.  Empirical Data
+
+We will check if we have any outliers with boxplot function:
+
+```{r}
+defectsAD <- tableAD$V2
+boxplot(defectsAD)
+```
+
+## 2. First Impressions 
+
+We will do histogram for the data:
+```{r}
+hist(defectsAD, ylab="Frequency ") # histogram (right graph)
+```
+
+## 3. Fit a known distribution 
+
+Now we will use R to estimate the paramters of known distribution to our data:
+```{r}
+normFit <- fitdist(defectsAD, "norm")
+summary(defectsAD) # summary function displays the results 
+```
+
+Now we will use plotdist to plot our data versus the theoretical distribution 
+```{r}
+plotdist(defectsAD,"norm",para=list(mean=normFit$estimate[1],sd=normFit$estimate[2])) 
+print(normFit)
+```
+
+## 4. Perform Goodness of Fit tests on fitted distribution
+
+now that we got the fitting dist, will do statisticlly test the hypothesis our data came from this distribution.
+we use Goodness of Fit tests (GOF).For that we will use Kolmogorov-Smirnov (KS).
+We will use the general function gofstat:
+
+```{r}
+normGof <- gofstat(normFit)%>%print()
+normGof$kstest%>%print()
+```
+
+#-------------------------------------------------E-J----------------------------------
+
+```{r}
+
+filePathEJ <- choose.files()
+tableEJ <- read.csv(filePathEJ,header=FALSE)
+```
+
+## 1.  Empirical Data
+
+  We will check if we have any outliers with boxplot function:
+
+```{r fitting norm}
+defectsEJ <- tableEJ$V2
+boxplot(defectsEJ)
+
+```
+
+  will sort out all the valuse that is > 400
+  and check with box plot agian
+
+```{r}
+
+new_defectsEJ <-   defectsEJ[which(defectsEJ<400)]
+boxplot(defectsEJ)
+
+```
+
+
+
+# 2. First Impressions 
+
+We will do histogram for the data:
+```{r}
+hist(new_defectsEJ, ylab="Frequency ") # histogram (right graph)
+```
+
+
+## 3. Fit a known distribution 
+
+Now we will estimate the paramters of known distribution to our data:
+```{r}
+expFit <- fitdist(new_defectsEJ,"exp") 
+summary(new_defectsEJ) # summary function displays the results 
+```
+
+
+Now we will use plotdist to plot our data versus the theoretical distribution 
+```{r}
+plotdist(new_defectsEJ,"exp",para=list(rate=expFit$estimate[1])) 
+print(expFit)
+```
+
+## 4. Perform Goodness of Fit tests on fitted distribution
+
+now that we got the fitting dist, will do statisticlly test the hypothesis our data came from this distribution.
+samr as the previuse test, we use Goodness of Fit tests (GOF).For that we will use Kolmogorov-Smirnov (KS).
+We will use the general function gofstat:
+
+```{r}
+expgof <-  gofstat(expFit)%>%print()
+expgof$kstest%>%print()
+```
+
+
+
+
+
+
+
+
+
+
+
