@@ -26,7 +26,7 @@ waitForLaneFinish <- function(){
   timeout(function() 20)
 }
 
-waitWithSeize <- function(){  #optioenal
+breakWithSeize <- function(){  #optioenal
   #we can generate break that seize all he stations and then send the workers to 
   #break and after release the resources
  
@@ -49,6 +49,41 @@ randomSample <- function() {
   
 }
 
+fixInAD <- function() {
+  deactivate("main")%>%
+  function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
+    
+  seize("station1", 1)%>%
+  seize("station2", 1)%>%
+  function() runif(10,30)%>%    # time to fix the machine
+    
+  release("station1", 1)%>%
+  release("station2", 1)%>%
+    
+  activate("main")
+}
+
+fixInEJ <- function() {
+  deactivate("main")%>%
+  function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
+  
+  seize("station3", 1)%>%
+  seize("station4", 1)%>%
+  seize("station5", 1)%>%
+  
+  function() runif(10,30)%>%    # time to fix the machine
+  
+  release("station3", 1)%>%
+  release("station4", 1)%>%
+  release("station5", 1)%>%
+  
+  activate("main")
+}
+
+payFixByTime <- function(tempTime) {
+  
+}
+
 
 ##----------------------------------------- 2.  all simulation parameters ------------------------------------------------
 
@@ -57,6 +92,8 @@ simulationTime<-2*8*60 #daily model - how much does the sim need to run
 # cus we need to know how much to pay for mullfunction 500 or 1000?
 
 QAinventory <- 0
+payForFixAmount <- 0
+toxicTime <-  10*60  #in seconds
 
 ##----------------------------------------- 3.  Init Simulation and add all resources  ------------------------------------------------
 
@@ -74,8 +111,24 @@ mamara <- simmer("mamara")%>%
 
 ##----------------------------------------- 4.  All trajectories, start from main trajectory and add sub-trajectories ABOVE IT it . ------------------------------------------------
 
+mullfunctionAD <- 
+  trajectory("mullAD")%>%
+  function() fixInAD
+
+
+firstNeedBreak <-             #maybe we can just put the function in the generator??
+  trajectory("firstBreak")%>%
+  function() breakWithSeize
+
+seconedNeedBreak <- 
+  trajectory("seconedBreak")%>%
+  function() breakWithSeize
+
+
+
 basicLine <-                       #Stations 1-5 + distribution times for each station + giving the state feature at the end of the line
   trajectory("basicLine")%>%
+  imAlive <-  proc.time()%>%          #sample the current time
   log_("Started basicLine")%>%
   addService("station1", function() rnorm(1, 3/60, 1/60) + rnorm(1, 3/60, 1/60))%>%
   log_("finished s1")%>%
@@ -87,6 +140,9 @@ basicLine <-                       #Stations 1-5 + distribution times for each s
   log_("finished s4")%>%
   addService("station5", function() rnorm(1, 2/60, 0.4/60) + rnorm(1, 3/60, 0.5/60))%>%
   log_("finished s5")%>%
+  if(proc.time() - imAlive > toxicTime){      # if (finsh a-j time) -(stat time) > 10 then leave
+    leave(1)
+  }%>%
   set_attribute(key = "state", value = function() ktzitzState)
 
 
@@ -97,12 +153,11 @@ baking <-
 
 
 packingTrayAndBox <- 
+  trajectory("packingTray")%>% 
   if(QAinventory < 100) {
     set_capacity("workerBpacking", 0)%>%
-    set_capacity("workerBdeliver", 1)
-    
+    set_capacity("workerBdeliver", 1)      # need 
   }else{
-    trajectory("packingTray")%>% 
     batch(n=20, timeout=0, permanent = FALSE)%>%
     timeout(function() rnorm(1, 2/60, 0.001/60))%>%
     batch(n=10, timeout=0, permanent = FALSE)
@@ -126,9 +181,9 @@ QAworkerNeedRefill <-         #worker b leave his station and bring a plat to qa
   
 
 
-breakTimeOverGoToWork <-      #rest time is over
-  trajectory("finishRest")%>%
-  set_capacity("station1", 1)
+# breakTimeOverGoToWork <-      #rest time is over
+#   trajectory("finishRest")%>%
+#   set_capacity("station1", 1)
 
 
 QAtest <-                     #traj for testing the condition of the ktzitzot
