@@ -200,6 +200,7 @@ QAtest <-                     #traj for testing the condition of the ktzitzot
   
   randomSample100 <- function() randomSample
   
+
   
   
   
@@ -224,14 +225,13 @@ add_generator(mamara, "firstNeedBreak", at(320))
 #generator for the seconed break
 add_generator(mamara, "seconedNeedBreak", at(720))
 #2 gennearators for mullfunctions with the acording distribution from fitDist_project file
-add_generator(mamara, "mullfunctionAD", distrubution = rnorm(1,normFit$estimate[1], normFit$estimate[2], mon = 2) )
-add_generator(mamara, "mullfunctionEJ", distrubution = rexp(1, expFit$estimate)) 
+add_generator(mamara, "mullfunctionAD", distrubution = rnorm(1,normFit$estimate[1], normFit$estimate[2]), mon = 2)
+add_generator(mamara, "mullfunctionEJ", distrubution = rexp(1, expFit$estimate), mon = 2) 
 
 ##----------------------------------------- 6.  reset, run, plots, outputs ------------------------------------------------
 set.seed(456)
 reset()%>%
   simmer::run(simulationTime)
-
 
 
 MatnasData<-get_mon_arrivals()%>%
