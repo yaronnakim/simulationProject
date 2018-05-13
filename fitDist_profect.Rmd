@@ -100,7 +100,7 @@ boxplot(defectsEJ)
 ```{r}
 
 new_defectsEJ <-   defectsEJ[which(defectsEJ<400)]
-boxplot(defectsEJ)
+boxplot(new_defectsEJ)
 
 ```
 
