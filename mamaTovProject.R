@@ -8,7 +8,7 @@ addService<- function  (path,sname,timeDist){
   return(updatedPath)
 }
 
-ktzitzState <- function(){          #attribute for ktzitza state: 1 - proper, 2 - defected.
+ktzitzState <- function(){          #attribute for the ktzitza's state: 1 - proper, 2 - defected.
   state = rdiscrete(n=1, c(0.85, 0.15), c(1, 2))
   return(state)
 }
@@ -66,7 +66,7 @@ fixInAD <- function() {
 
 fixInEJ <- function() {
   deactivate("main")%>%
-  function() payFixBytime(now(mamara))  
+  function() payFixBytime(now(mamara))%>% 
   function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
   
   seize("station3", 1)%>%
