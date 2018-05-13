@@ -51,6 +51,7 @@ randomSample <- function() {
 
 fixInAD <- function() {
   deactivate("main")%>%
+  function() payFixBytime(now(mamara))  
   function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
     
   seize("station1", 1)%>%
@@ -65,6 +66,7 @@ fixInAD <- function() {
 
 fixInEJ <- function() {
   deactivate("main")%>%
+  function() payFixBytime(now(mamara))  
   function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
   
   seize("station3", 1)%>%
@@ -80,10 +82,15 @@ fixInEJ <- function() {
   activate("main")
 }
 
-payFixByTime <- function(tempTime) {
-  
+payFixByTime <- function(tempTime) {      #update the amount of money we pay for fixing the machine
+  if(dayWorkTime - tempTime > 840 ){
+    payForFixAmount = payForFixAmount + 1000
+  }if(dayWorkTime - tempTime < 420){
+    payForFixAmount = payForFixAmount + 1000
+  }else{
+    payForFixAmount = payForFixAmount + 500
+  }
 }
-
 
 ##----------------------------------------- 2.  all simulation parameters ------------------------------------------------
 
@@ -91,6 +98,7 @@ simulationTime<-2*8*60 #daily model - how much does the sim need to run
 # how we separate the times of the sim to know in witch hour of the day we are??
 # cus we need to know how much to pay for mullfunction 500 or 1000?
 
+dayWorkTime <- 960
 QAinventory <- 0
 payForFixAmount <- 0
 toxicTime <-  10*60  #in seconds
@@ -156,7 +164,7 @@ packingTrayAndBox <-
   trajectory("packingTray")%>% 
   if(QAinventory < 100) {
     set_capacity("workerBpacking", 0)%>%
-    set_capacity("workerBdeliver", 1)      # need 
+    set_capacity("workerBdeliver", 1)      # need logic of priority
   }else{
     batch(n=20, timeout=0, permanent = FALSE)%>%
     timeout(function() rnorm(1, 2/60, 0.001/60))%>%
