@@ -8,6 +8,18 @@ addService<- function  (path,sname,timeDist){
   return(updatedPath)
 }
 
+testStateChange2 <- function(){
+  newState <-  rdiscrete(n=1, c(0.3,0.7), c(1,2))
+  return(newState)
+}
+
+
+testStateChange1 <- function(){
+  newState <-  rdiscrete(n=1, c(0.85,0.15), c(1,2))
+  return(newState)
+}
+
+
 ktzitzState <- function(){          #attribute for the ktzitza's state: 1 - proper, 2 - defected.
   state = rdiscrete(n=1, c(0.85, 0.15), c(1, 2))
   return(state)
@@ -54,7 +66,8 @@ randomSample <- function() {
 fixInAD <- function() {
   deactivate("main")%>%
   function() payFixBytime(now(mamara))%>%
-  function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
+  function() runif(20,30)%>%    #time for handy to arrive
+  function() rexp(1, 20)%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
     
   seize("station1", 1)%>%
   seize("station2", 1)%>%
@@ -69,7 +82,8 @@ fixInAD <- function() {
 fixInEJ <- function() {
   deactivate("main")%>%
   function() payFixBytime(now(mamara))%>% 
-  function() rexp(1, 20)%>%     # diagnosis time fo the problem  & check if the rate is 20 or 20/60
+  function() runif(20,30)%>%    #time for handy to arrive
+  function() rexp(1, 20)%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
   
   seize("station3", 1)%>%
   seize("station4", 1)%>%
@@ -95,6 +109,18 @@ payFixByTime <- function(tempTime) {      #update the amount of money we pay for
   }
 }
 
+needRefill <- function(){
+  
+  return(now(mamara))
+}
+
+initDay <- function(){
+  dayWorkTime <- 960
+  QAinventory <- 0
+  payForFixAmount <- 0
+  toxicTime <-  10*60  #in seconds
+  testCost <- 0.75
+}
 ##----------------------------------------- 2.  all simulation parameters ------------------------------------------------
 
 simulationTime<-2*8*60 #daily model - how much does the sim need to run
@@ -122,11 +148,16 @@ mamara <- simmer("mamara")%>%
 
 ##----------------------------------------- 4.  All trajectories, start from main trajectory and add sub-trajectories ABOVE IT it . ------------------------------------------------
 
-mullfunctionAD <- 
+init <- 
+  trajectory("initialize")%>%
+  function() initDay
+
+
+malfunctionAD <-           #traj for malf in jobs AD 
   trajectory("mullAD")%>%
   function() fixInAD
 
-mullfunctionEJ <- 
+malfunctionEJ <-            #traj for malf in jobs EJ 
   trajectory("mullAD")%>%
   function() fixInEJ
 
@@ -164,7 +195,8 @@ basicLine <-                       #Stations 1-5 + distribution times for each s
 baking <- 
   trajectory("baking")%>%
   batch(n=5, timeout=0, permanent = FALSE)%>%
-  addService("oven", function() 10)
+  addService("oven", function() 10)%>%
+  log_("baking done")
 
 
 packingTrayAndBox <- 
@@ -173,9 +205,12 @@ packingTrayAndBox <-
     set_capacity("workerBpacking", 0)%>%
     set_capacity("workerBdeliver", 1)      # need logic of priority
   }else{
-    batch(n=20, timeout=0, permanent = FALSE)%>%
+    batch(n=20, timeout=0, permanent = FALSE)%>%    #tray
     timeout(function() rnorm(1, 2/60, 0.001/60))%>%
-    batch(n=10, timeout=0, permanent = FALSE)
+    # for(i in 1:10){
+    #    set_attribute( keys= "plate", valuse = i )
+    # }%>%
+    batch(n=10, timeout=0, permanent = FALSE) #BOX
     }
 
 
@@ -192,8 +227,9 @@ QAworkerNeedRefill <-         #worker b leave his station and bring a plat to qa
   set_capacity("workerBdeliver",1)%>%
   QAinventory = (QAworkerNeedRefill + 100) %>%
   timeout(function() 4)
-  
-  
+ 
+
+
 
 
 # breakTimeOverGoToWork <-      #rest time is over
@@ -203,15 +239,19 @@ QAworkerNeedRefill <-         #worker b leave his station and bring a plat to qa
 
 QAtest <-                     #traj for testing the condition of the ktzitzot
   trajectory("QAtest")%>%
-  separate()%>%
+  x <-  sample(size = 100, replace = F)%>%
+  for(i in 1:100){
+    if(get_attribute(mamara, keys = "state") = 2){
+      set_attribute(keys = "state", values = function() testStateChange2) #error of type 2
+    }else{
+      set_attribute(keys = "state", values = function() testStateChange1) #error of type 1
+    }
+  }
   #how i differ from box to plat?? with attributs?
   randomSample100 <- function() randomSample
-<<<<<<< HEAD
-  #need to finish ligic and sample function
-=======
-  
 
->>>>>>> 545c2caf46071d8d4734ff3c2cf7eb3a198e2ce7
+  #need to finish ligic and sample function
+
   
   
   
@@ -227,7 +267,7 @@ QAtest <-                     #traj for testing the condition of the ktzitzot
 
 
 
-
+  mualfunctionAD
 ##----------------------------------------- 5.  All Generators, ALWAYS LAST. ------------------------------------------------
 #main generator for ktzitz
 add_generator(mamara, "main", distribution=function() 8/60,mon=2)
@@ -235,19 +275,22 @@ add_generator(mamara, "main", distribution=function() 8/60,mon=2)
 add_generator(mamara, "firstNeedBreak", at(320))
 #generator for the seconed break
 add_generator(mamara, "seconedNeedBreak", at(720))
-#2 gennearators for mullfunctions with the acording distribution from fitDist_project file
-add_generator(mamara, "mullfunctionAD", distrubution = rnorm(1,normFit$estimate[1], normFit$estimate[2]), mon = 2)
-add_generator(mamara, "mullfunctionEJ", distrubution = rexp(1, expFit$estimate), mon = 2) 
+#2 gennearators for mualfunctions with the acording distribution from fitDist_project file
+add_generator(mamara, "malfunctionAD", distrubution = rnorm(1,normFit$estimate[1], normFit$estimate[2]), mon = 2)
+add_generator(mamara, "malfunctionEJ", distrubution = rexp(1, expFit$estimate), mon = 2) 
+# add_generator(mamara, "reFillInventoryA", workerB, at(function() needRefill) )
+
+add_generator(mamara, "init", at(0), mon = 2) 
+
 
 ##----------------------------------------- 6.  reset, run, plots, outputs ------------------------------------------------
 set.seed(456)
 reset()%>%
   simmer::run(simulationTime)
 
-<<<<<<< HEAD
+
 #get_n_generated returns the number of arrivals generated by a given generator.
-=======
->>>>>>> 545c2caf46071d8d4734ff3c2cf7eb3a198e2ce7
+
 
 MatnasData<-get_mon_arrivals()%>%
   mutate(waiting_time = end_time - start_time - activity_time)
