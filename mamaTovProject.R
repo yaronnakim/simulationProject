@@ -8,13 +8,13 @@ addService<- function  (path,sname,timeDist){
   return(updatedPath)
 }
 
-testStateChange2 <- function(){
+testStateChange2 <- function(){        #function to change the state from defected to proper
   newState <-  rdiscrete(n=1, c(0.3,0.7), c(1,2))
   return(newState)
 }
 
 
-testStateChange1 <- function(){
+testStateChange1 <- function(){       #function to change the state from defected to proper
   newState <-  rdiscrete(n=1, c(0.85,0.15), c(1,2))
   return(newState)
 }
@@ -200,17 +200,31 @@ baking <-
 
 
 packingTrayAndBox <- 
-  trajectory("packingTray")%>% 
-  if(QAinventory < 100) {
-    set_capacity("workerBpacking", 0)%>%
-    set_capacity("workerBdeliver", 1)      # need logic of priority
-  }else{
+  trajectory("packingTray")%>%
+  if(QAinventory = 0){          #start of the day... will deliver 2 trays to QA inventory
     batch(n=20, timeout=0, permanent = FALSE)%>%    #tray
     timeout(function() rnorm(1, 2/60, 0.001/60))%>%
+    set_capacity("workerBpacking", 0)%>%
+    set_capacity("workerBdeliver", 1)%>%
+    QAinventory = (QAworkerNeedRefill + 100) %>%
+    timeout(function() 4)%>%
+    rollback(amount = 6, times = 1)  
+  }
+  batch(n=20, timeout=0, permanent = FALSE)%>%    #tray
+  timeout(function() rnorm(1, 2/60, 0.001/60))%>%
+  log_("im a tray")%>%
+  
+  if(QAinventory < 100) {
+    set_capacity("workerBpacking", 0)%>%
+    set_capacity("workerBdeliver", 1)%>%      # need logic of priority
+    QAinventory = (QAworkerNeedRefill + 100) %>%
+    timeout(function() 4)
+  }else{
     # for(i in 1:10){
     #    set_attribute( keys= "plate", valuse = i )
     # }%>%
     batch(n=10, timeout=0, permanent = FALSE) #BOX
+    log_("im a box")
     }
 
 
