@@ -115,11 +115,16 @@ needRefill <- function(){
 }
 
 initDay <- function(){
-  dayWorkTime <- 960
-  QAinventory <- 0
-  payForFixAmount <- 0
-  toxicTime <-  10*60  #in seconds
-  testCost <- 0.75
+  dayWorkTime <- 960%>%
+  QAinventory <- 0%>%
+  payForFixAmount <- 0%>%
+  toxicTime <-  10*60%>%  #in seconds
+  testCost <- 0.75%>%
+  set_attribute(keys = "numOfDefects", values = 0, global =T)%>%
+  set_attribute(keys = "overTenMinutes", values = 0, global =T)%>%
+  set_attribute(keys = "boxRejected", values = 0, global =T)
+  # set_attribute(keys = "numOfDefects", values = 0, global =T)
+  
 }
 ##----------------------------------------- 2.  all simulation parameters ------------------------------------------------
 
@@ -148,7 +153,7 @@ mamara <- simmer("mamara")%>%
 
 ##----------------------------------------- 4.  All trajectories, start from main trajectory and add sub-trajectories ABOVE IT it . ------------------------------------------------
 
-init <- 
+init <-                #initialize all parameters
   trajectory("initialize")%>%
   function() initDay
 
@@ -187,6 +192,8 @@ basicLine <-                       #Stations 1-5 + distribution times for each s
   addService("station5", function() rnorm(1, 2/60, 0.4/60) + rnorm(1, 3/60, 0.5/60))%>%
   log_("finished s5")%>%
   if(proc.time() - imAlive > toxicTime){      # if (finsh a-j time) -(stat time) > 10 then leave
+    set_attribute(keys = "overTenMinutes" , values = get_attribute("overTenMinutes") + 1 , global = T)%>%   #counter for  amount of reject befor baking
+    log_("im over 10 min")%>%
     leave(1)
   }%>%
   set_attribute(key = "state", value = function() ktzitzState)
@@ -209,7 +216,7 @@ packingTrayAndBox <-
     QAinventory = (QAworkerNeedRefill + 100) %>%
     timeout(function() 4)%>%
     rollback(amount = 6, times = 1)  
-  }
+  }%>%
   batch(n=20, timeout=0, permanent = FALSE)%>%    #tray
   timeout(function() rnorm(1, 2/60, 0.001/60))%>%
   log_("im a tray")%>%
