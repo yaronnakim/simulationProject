@@ -90,13 +90,13 @@ ktzitzState <- function(){          #attribute for the ktzitza's state: 1 - prop
 
 payFixByTime <- function(tempTime) {      #update the amount of money we pay for fixing the machine
   log_(tempTime)%>%
-  if(dayWorkTime - tempTime < 420 | dayWorkTime - tempTime > 840  ){
-    log_("late or early payment")%>%
-      set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 1000 , global = TRUE  )
-  }else{
-    log_("work hour payment")%>%
-      set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 500 , global = TRUE  )
-  }
+    if(dayWorkTime - tempTime < 420 | dayWorkTime - tempTime > 840  ){
+      log_("late or early payment")%>%
+        set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 1000 , global = TRUE  )
+    }else{
+      log_("work hour payment")%>%
+        set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 500 , global = TRUE  )
+    }
 }
 
 # payFixByTime <- function(tempTime) {      old function
@@ -183,7 +183,7 @@ baking <-
   batch(n=5, timeout=0, permanent = FALSE)%>%
   # log_("Arrived Baking")%>%
   addService("oven", function() 10)
-  #log_("baking done")
+#log_("baking done")
 
 QAInvRefill <-         #worker b leave his station and bring a plat to qa inventory
   trajectory("needRefill")%>%
@@ -192,9 +192,9 @@ QAInvRefill <-         #worker b leave his station and bring a plat to qa invent
   set_attribute(key="QAInventory",value= (function() get_attribute(mamara,key="QAInventory",global=TRUE)+100), global = TRUE)%>% #updating global QAInventory +100
   addService("workerB",function() 4)%>%
   log_("QAInvRefill finished")
-  
 
-  
+
+
 
 
 packingTray <- 
@@ -213,11 +213,16 @@ packingTray <-
 
 
 
+invalidBox <- 
+  trajectory("invalidBox")%>%
+  set_attribute(key = "validBox", value = 1, global = TRUE)
+
 
 QASwap <- 
   trajectory("QASwap")%>%
   log_("started QASwap")%>%
-  set_attribute(keys = "defectsCounter", values =( function() get_attribute(mamara, "defectsCounter", global = TRUE) + 1) , global = TRUE)%>%
+  set_attribute(key = "defectsCounter", value =( function() get_attribute(mamara, "defectsCounter", global = TRUE) + 1) , global = TRUE)%>%
+  branch(option=function() ifelse(get_attribute(mamara, key="defectsCounter",global=TRUE)==23, 1, 0), continue= c(TRUE), invalidBox)%>%
   addService("workerA", function() rnorm(1, 30/60, 10/60))%>%
   set_attribute("ktzitzState", 1)%>%             ##replace the bad with some good shit product
   set_attribute("QAInventory" ,function() get_attribute(mamara, "QAInventory", global = TRUE) - 1, global = TRUE)%>%      #remove 1 ktzitz from the inventory
@@ -235,14 +240,14 @@ QAtest <-                     #traj for testing the condition of the ktzitzot
   # set_attribute(key = "QAktzitzState", value = function() qualityCheck(get_attribute(mamara, "ktzitzState")) )%>%
   branch(option =function() ifelse(
     (qualityCheck(function() get_attribute(mamara, "ktzitzState") )) == 2 && 
-     function() get_attribute(mamara, "defectsCounter", global = TRUE < 23) , 1 ,0),
-     continue= c(TRUE), QASwap)%>%
+      function() get_attribute(mamara, "defectsCounter", global = TRUE < 23) , 1 ,0),
+    continue= c(TRUE), QASwap)%>%
   log_("about to be batched Dish QAtest")%>%
   batch(n=5, timeout=0, permanent = FALSE)%>%     #Baking Dish
   log_("about to be batched tray QAtest")%>%
   batch(n=20, timeout=0, permanent = FALSE)%>%    #Tray
   log_("Finished QAtest")
-  
+
 
 
 QAprocess <- 
@@ -259,7 +264,7 @@ QAprocess <-
   log_("im in the cooler")
 
 #   seize("station1", 1)%>%
-#   seize("station2", 1)%> %
+#   seize("station2", 1)%>%
 #   seize("station3", 1)%>%
 #   seize("station4", 1)%>%
 #   seize("station5", 1)%>%
@@ -298,7 +303,7 @@ QAprocess <-
 #   log_("diagnosis time")%>%
 #   timeout  (function() runif(1,10,30))%>%    # time to fix the machine
 #   log_("fix time")
-  
+
 
 
 
@@ -357,8 +362,8 @@ QAprocess <-
 #   activate("ktzitza")%>%
 #   log_("fix EJ done...")
 
-  
-  
+
+
 Break <-             #maybe we can just put the function in the generator??
   trajectory("Break")%>%
   log_("break started")%>%
@@ -380,9 +385,9 @@ Break <-             #maybe we can just put the function in the generator??
   release("station5")%>%
   activate("ktzitza")%>%
   log_("break is over")
-  
-  
-  
+
+
+
 
 
 main <- 
@@ -402,10 +407,10 @@ mamara%>%
   add_generator( "firstBreak",Break, at(240),priority = 1 , preemptible = 1)%>%
   # generator for the seconed break
   add_generator( "seconedBreak",Break, at(720),priority = 1 , preemptible = 1)
-  #2 gennearators for mualfunctions with the acording distribution from fitDist_project file
-  # add_generator( "malfunctionAD",malfunctionAD, distribution = function() rnorm(1 ,103.736803, 5.950731), mon = 2)%>%
-  # add_generator( "malfunctionEJ",malfunctionEJ, distribution = function() rexp(1, rate =0.008014166), mon = 2)
-  # # add_generator( "reFillInventoryA", needRefill, at(now(mamara)), mon = 2, priority = 1 , preemptible = 1)
+#2 gennearators for mualfunctions with the acording distribution from fitDist_project file
+# add_generator( "malfunctionAD",malfunctionAD, distribution = function() rnorm(1 ,103.736803, 5.950731), mon = 2)%>%
+# add_generator( "malfunctionEJ",malfunctionEJ, distribution = function() rexp(1, rate =0.008014166), mon = 2)
+# # add_generator( "reFillInventoryA", needRefill, at(now(mamara)), mon = 2, priority = 1 , preemptible = 1)
 
 
 ##----------------------------------------- 6.  reset, run, plots, outputs ------------------------------------------------
