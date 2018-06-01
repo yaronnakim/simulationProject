@@ -1,0 +1,426 @@
+##----------------------------------------- 1.  all functions ------------------------------------------------
+addService<- function  (path,sname,timeDist){
+  updatedPath <- seize(path, sname)%>%
+    timeout(timeDist) %>%
+    release(sname)
+  
+  return(updatedPath)
+}
+
+qualityCheck <- function(ktzitzState){
+  if(ktzitzState == 1)
+    QCState = rdiscrete(1, c(0.85,0.15), c(1,2))
+  if(ktzitzState == 2)
+    QCState = rdiscrete(n=1, c(0.3,0.7), c(1,2))
+  return(QCState)
+}
+
+ktzitzState <- function(){          #attribute for the ktzitza's state: 1 - proper, 2 - defected.
+  state = rdiscrete(n=1, c(0.85, 0.15), c(5, 6))
+  return(state)
+}
+
+# breakWithSeize <- function(){  #optioenal
+#   #we can generate break that seize all he stations and then send the workers to 
+#   #break and after release the resources
+#   seize_selected()
+#   deactivate("main")%>%
+#     seize("station1", 1)%>%
+#     seize("station2", 1)%>%
+#     seize("station3", 1)%>%
+#     seize("station4", 1)%>%
+#     seize("station5", 1)%>%
+#     timeout(function() 20)%>%
+#     release("station1", 1)%>%
+#     release("station2", 1)%>%
+#     release("station3", 1)%>%
+#     release("station4", 1)%>%
+#     release("station5", 1)%>%
+#     activate("main")
+# }
+
+
+# fixInAD <- function() {
+#   log_("gen out")%>%
+#   deactivate("main")%>%
+#   log_("fix in ad")%>%
+#   function() payFixBytime(now(mamara))%>%
+#   log_("count payment")%>%
+#   function() runif(20,30)%>%    #time for handy to arrive
+#   log_("fixman arrived")%>%
+#   function() rexp(1, 20)%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
+#   log_("diagnosis time")%>%
+#   seize("station1", 1)%>%
+#   seize("station2", 1)%>%
+#   function() runif(10,30)%>%    # time to fix the machine
+#   log_("fix time")%>%
+#   
+#   release("station1", 1)%>%
+#   release("station2", 1)%>%
+#   
+#     activate("main")
+#   log_("gen back on")
+# }
+# 
+# fixInEJ <- function() {
+#   log_("gen out")%>%
+#   deactivate("main")%>%
+#   log_("fix in ej")%>%
+#   function() payFixBytime(now(mamara))%>% 
+#   log_("count payment")%>%
+#   function() runif(20,30)%>%    #time for handy to arrive
+#   log_("fixman arrived")%>%
+#   function() rexp(1, 20)%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
+#   log_("diagnosis time")%>%
+#   seize("station3", 1)%>%
+#   seize("station4", 1)%>%
+#   seize("station5", 1)%>%
+#   
+#   function() runif(10,30)%>%    # time to fix the machine
+#   log_("fix time")%>%
+#   
+#   release("station3", 1)%>%
+#   release("station4", 1)%>%
+#   release("station5", 1)%>%
+#   
+#   activate("main")
+#   log_("gen back on")
+# }
+
+
+payFixByTime <- function(tempTime) {      #update the amount of money we pay for fixing the machine
+  log_(tempTime)%>%
+    if(dayWorkTime - tempTime < 420 | dayWorkTime - tempTime > 840  ){
+      log_("late or early payment")%>%
+        set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 1000 , global = TRUE  )
+    }else{
+      log_("work hour payment")%>%
+        set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 500 , global = TRUE  )
+    }
+}
+
+# payFixByTime <- function(tempTime) {      old function
+#   if(dayWorkTime - tempTime > 840 ){
+#     log_(dayWorkTime - tempTime)%>%
+#       payForFixAmount = payForFixAmount + 1000
+#   }if(dayWorkTime - tempTime < 420){
+#     payForFixAmount = payForFixAmount + 1000
+#   }else{
+#     payForFixAmount = payForFixAmount + 500
+#   }
+# }
+
+##----------------------------------------- 2.  all simulation parameters ------------------------------------------------
+
+simulationTime<-60*16 #daily model - how much does the sim need to run
+
+dayWorkTime <- 3*60
+QAinventory <- 0
+# payForFixAmount <- 0
+# testCost <- 0.75 
+# numOfDefects <- 0 
+boxRejected <- 0
+trayCounter <- 0
+
+
+##----------------------------------------- 3.  Init Simulation and add all resources  ------------------------------------------------
+
+mamara <- simmer("mamara")%>%
+  add_resource("station1", capacity=1, queue_size=Inf, preemptive = T)%>%
+  add_resource("station2", capacity=1, queue_size=Inf, preemptive = T)%>%
+  add_resource("station3", capacity=1, queue_size=Inf, preemptive = T)%>%
+  add_resource("station4", capacity=1, queue_size=Inf, preemptive = T)%>%
+  add_resource("station5", capacity=1, queue_size=Inf, preemptive = T)%>%
+  add_resource("oven", capacity = 10, queue_size = Inf)%>%
+  add_resource("workerB", capacity = 1, queue_size = Inf , preemptive = F)%>%  #the resource worker b take whille he pack
+  add_resource("workerA", capacity = 1, queue_size = Inf)
+
+##----------------------------------------- 4.  All trajectories, start from main trajectory and add sub-trajectories ABOVE IT it . ------------------------------------------------
+
+
+
+dayInit <- 
+  trajectory("dayInit")%>%
+  log_("her we gooooo!!!!")%>%
+  set_attribute(key = "QAInventory", value = 0, global = TRUE)%>%
+  set_attribute(key = "trayNum", value = 1, global = TRUE)%>%
+  set_attribute(key = "payForFix", value = 0, global = TRUE)%>%
+  set_attribute(key = "defectsCounter", value = 0, global = TRUE)%>%
+  set_attribute(key = "validBox", value = 0, global = TRUE)%>%
+  log_("im doneeeeeeeeeeee")
+
+
+trayNumreseter <- 
+  trajectory("trayNumreseter") %>%
+  set_attribute(key="trayNum",value= function() 1, global = TRUE)%>%
+  log_("Reseted trayNum")
+
+
+throw <- #Ktzitza in process over 10 minutes 
+  trajectory("throw")%>%
+  log_("ooooooooooooooout")
+
+basicLine <-                       #Stations 1-5 + distribution times for each station + giving the state feature at the end of the line
+  trajectory("basicLine")%>%
+  renege_in(10, throw)%>%
+  #log_("Started basicLine")%>%
+  addService("station1", function() rnorm(1, 3/60, 1/60) + rnorm(1, 3/60, 1/60))%>%
+  #log_("finished s1")%>%
+  addService("station2", function() rnorm(1, 2/60, 0.1/60) +  rnorm(1, 5/60, 0.25/60))%>%
+  #log_("finished s2")%>%
+  addService("station3", function() rnorm(1, 1/60, 0.25/60) +  rnorm(1, 5/60, 1.5/60) + rnorm(1, 2/60, 0.65/60))%>%
+  #log_("finished s3")%>%
+  addService("station4", function() rnorm(1, 5/60, 0.5/60))%>%
+  #log_("finished s4")%>%
+  addService("station5", function() rnorm(1, 2/60, 0.4/60) +  rnorm(1, 3/60, 0.5/60))%>%
+  #log_("finished s5")%>%
+  set_attribute(key = "ktzitzState", value = function() ktzitzState())
+
+
+baking <- 
+  trajectory("baking")%>%
+  renege_abort()%>%
+  batch(n=5, timeout=0, permanent = FALSE)%>%
+  # log_("Arrived Baking")%>%
+  addService("oven", function() 10)
+#log_("baking done")
+
+QAInvRefill <-         #worker b leave his station and bring a plat to qa inventory
+  trajectory("needRefill")%>%
+  log_("QAInvRefill started")%>%
+  set_prioritization(c(1,1,FALSE))%>%
+  set_attribute(key="QAInventory",value= (function() get_attribute(mamara,key="QAInventory",global=TRUE)+100), global = TRUE)%>% #updating global QAInventory +100
+  addService("workerB",function() 4)%>%
+  log_("QAInvRefill finished")
+
+
+
+
+
+packingTray <- 
+  trajectory("packingTray")%>%
+  # log_("Arrived PackingTray")%>%
+  batch(n=20, timeout=0, permanent = FALSE)%>%    #tray
+  # log_("Im a Tray")%>%
+  timeout(function() rnorm(1, 2/60, 0.001/60))%>%
+  branch(option=function() ifelse(get_attribute(mamara, key="QAInventory",global=TRUE)<=100, 1, 0), continue= c(FALSE), QAInvRefill)%>%
+  branch(option=function() ifelse(get_attribute(mamara, key="trayNum",global=TRUE)==11, 1, 0), continue= c(TRUE), trayNumreseter)%>%#if the condition is true- return 1 else 
+  set_attribute(key="trayNum",value=function() get_attribute(mamara,key="trayNum",global=TRUE))%>% #Allocating global trayNum to personal trayNum
+  # log_(function() paste("trayNumPersonal is: ", get_attribute(mamara, "trayNum")))%>% #printing what is the personal trayNum of the tray
+  set_attribute(key="trayNum",value= (function() get_attribute(mamara,key="trayNum",global=TRUE)+1), global = TRUE)%>% #updating global trayNum by 1
+  batch(n=10, timeout=0, permanent = FALSE)%>% #BOX
+  log_("im a box")
+
+
+
+invalidBox <- 
+  trajectory("invalidBox")%>%
+  set_attribute(key = "validBox", value = 1, global = TRUE)
+
+
+QASwap <- 
+  trajectory("QASwap")%>%
+  log_("started QASwap")%>%
+  set_attribute(key = "defectsCounter", value =( function() get_attribute(mamara, "defectsCounter", global = TRUE) + 1) , global = TRUE)%>%
+  branch(option=function() ifelse(get_attribute(mamara, key="defectsCounter",global=TRUE)==23, 1, 0), continue= c(TRUE), invalidBox)%>%
+  addService("workerA", function() rnorm(1, 30/60, 10/60))%>%
+  set_attribute("ktzitzState", 1)%>%             ##replace the bad with some good shit product
+  set_attribute("QAInventory" ,function() get_attribute(mamara, "QAInventory", global = TRUE) - 1, global = TRUE)%>%      #remove 1 ktzitz from the inventory
+  log_("Finished QASwap")
+
+
+QAtest <-                     #traj for testing the condition of the ktzitzot
+  trajectory("QAtest")%>%
+  log_("started QAtest")%>%
+  separate()%>%
+  #log_("separate1 QAtest")%>%
+  separate()%>%
+  #log_("separate2 QAtest")%>%
+  addService("workerA", runif(1, 10/60, 30/60))%>%  #Each Check costs 0.75shekels
+  # set_attribute(key = "QAktzitzState", value = function() qualityCheck(get_attribute(mamara, "ktzitzState")) )%>%
+  log_("to branch")%>%
+  branch(option = ifelse(
+    (qualityCheck(function() get_attribute(mamara, "ktzitzState") )) == 6 &&
+    (get_attribute(mamara, "defectsCounter", global = TRUE) < 23) ,
+    1 ,0), continue= c(TRUE), QASwap
+  )%>%
+  log_("about to be batched Dish QAtest")%>%
+  batch(n=5, timeout=0, permanent = FALSE)%>%     #Baking Dish
+  log_("about to be batched tray QAtest")%>%
+  batch(n=20, timeout=0, permanent = FALSE)%>%    #Tray
+  log_("Finished QAtest")
+
+
+
+QAprocess <- 
+  trajectory("QAprocess")%>%
+  log_("started QAProcess")%>%
+  separate()%>%
+  log_("separate QAprocess")%>%
+  branch(option=function() ifelse(get_attribute(mamara, key="trayNum")==3, 1, 0), continue= c(TRUE), QAtest)%>%#if the condition is true- return 1 else 
+  #log_("waiting to be batched QAprocess")%>%
+  batch(n=10, timeout=0, permanent = FALSE)%>% #BOX
+  log_("finished QAprocess, am a box")%>%
+  timeout(function() runif(1, 3/60, 6/60))%>%
+  # branch(option= ifelse(function() get_attribute(mamara, key="defectsCounter",  global = TRUE)>22 ,1, 0), continue= c(TRUE), QAtest)%>%#if the condition is true- return 1 else 
+  log_("im in the cooler")
+
+#   seize("station1", 1)%>%
+#   seize("station2", 1)%>%
+#   seize("station3", 1)%>%
+#   seize("station4", 1)%>%
+#   seize("station5", 1)%>%
+#   timeout(function() 20)%>%
+#   release("station1", 1)%>%
+#   release("station2", 1)%>%
+#   release("station3", 1)%>%
+#   release("station4", 1)%>%
+#   release("station5", 1)%>%
+
+
+
+# payFixByTime <- function(tempTime) {      #update the amount of money we pay for fixing the machine
+#   log_(tempTime)%>%
+#     if(dayWorkTime - tempTime < 420 | dayWorkTime - tempTime > 840  ){
+#       log_("late or early payment")%>%
+#         set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 1000 , global = TRUE  )
+#     }else{
+#       log_("work hour payment")%>%
+#         set_attribute(keys = "payForFix", values = function() get_attribute(mamara,"payForFix", global = TRUE ) + 500 , global = TRUE  )
+#     }
+# }
+
+
+
+# fixMalfunction <- 
+#   trajectory("fixMalfunction")%>%
+#   log_("fix in ad")%>%
+#   log_("gen out")%>%
+#   # # tempTime <- now(mamara)%>%
+#   # # payFixByTime(now(mamara))%>%
+#   log_("count payment")%>%
+#   timeout(function() runif(1,20,30))%>% #%>%    #time for handy to arrive
+#   log_("fixman arrived")%>%
+#   timeout (function() rexp(1, 20))%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
+#   log_("diagnosis time")%>%
+#   timeout  (function() runif(1,10,30))%>%    # time to fix the machine
+#   log_("fix time")
+
+
+
+
+
+# malfunctionAD <-           #traj for malf in jobs AD 
+#   trajectory("malfunctionAD")%>%
+#   log_("prablom in AD")%>%
+#   deactivate("ktzitza")%>%
+#   
+#  # simmer::select(c("station1","station2") ,policy = c("shortest-queue"))%>%
+#   seize("station1")%>%
+#   seize("station2")%>%
+#   log_("seized the stations")%>%
+#   #seize_selected(amount = 2, continue = TRUE ,post.seize = fixMalfunction)%>%
+#   
+#   timeout(function() runif(1,20,30))%>% #%>%    #time for handy to arrive
+#   log_("fixman arrived")%>%
+#   timeout (function() rexp(1, 20))%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
+#   log_("diagnosis time")%>%
+#   timeout  (function() runif(1,10,30))%>%
+#   
+#   #release_selected(amount = 2)%>%
+#   
+#   release("station1", 1)%>%
+#   release("station2", 1)%>%
+#   
+#   log_("release the stations")%>%
+#   activate("ktzitza")%>%
+#   log_("fix AD done...")
+# 
+# 
+# malfunctionEJ <-            #traj for malf in jobs EJ 
+#   trajectory("malfunctionEJ")%>%
+#   log_("prablom in EJ")%>%
+#   deactivate("ktzitza")%>%
+#   seize("station3")%>%
+#   seize("station4")%>%
+#   seize("station5")%>%
+#   
+#   #simmer::select(c("station3","station4", "station5") ,policy = c("shortest-queue"))%>%
+#   log_("seized the stations")%>%
+#   
+#   timeout(function() runif(1,20,30))%>% #%>%    #time for handy to arrive
+#   log_("fixman arrived")%>%
+#   timeout (function() rexp(1, 20))%>%     # diagnosis time for the problem  & check if the rate is 20 or 20/60
+#   log_("diagnosis time")%>%
+#   timeout  (function() runif(1,10,30))%>%
+#   
+#  # seize_selected(amount = 1, continue = TRUE ,post.seize = fixMalfunction)%>%
+#   release("station3", 1)%>%
+#   release("station4", 1)%>%
+#   release("station5", 1)%>%
+#   
+#   # release_selected(amount = 1)%>%
+#   log_("release the stations")%>%
+#   activate("ktzitza")%>%
+#   log_("fix EJ done...")
+
+
+
+Break <-             #maybe we can just put the function in the generator??
+  trajectory("Break")%>%
+  log_("break started")%>%
+  deactivate("ktzitza")%>%
+  seize("station1")%>%
+  seize("station2")%>%
+  seize("station3")%>%
+  seize("station4")%>%
+  seize("station5")%>%
+  log_("seized the 5 stations")%>%
+  # simmer::select( c("station1","station2","station3","station4","station5"),policy = c("shortest-queue") )%>%
+  # seize_selected(amount = 1)%>%
+  timeout(function() 20)%>%
+  # releas'e_selected(amount = 1)%>%
+  release("station1")%>%
+  release("station2")%>%
+  release("station3")%>%
+  release("station4")%>%
+  release("station5")%>%
+  activate("ktzitza")%>%
+  log_("break is over")
+
+
+
+
+
+main <- 
+  trajectory("main")%>%
+  simmer::join(basicLine,
+               baking,
+               packingTray,
+               QAprocess
+  )
+
+##----------------------------------------- 5.  All Generators, ALWAYS LAST. ------------------------------------------------
+#main generator for ktzitz
+mamara%>%
+  add_generator("ktzitza", main, distribution=function() 8/60,mon=2)%>%
+  add_generator("initEntity",dayInit , at(0), mon = 2) %>%
+  # generator for the first break
+  add_generator( "firstBreak",Break, at(240),priority = 1 , preemptible = 1)%>%
+  # generator for the seconed break
+  add_generator( "seconedBreak",Break, at(720),priority = 1 , preemptible = 1)
+#2 gennearators for mualfunctions with the acording distribution from fitDist_project file
+# add_generator( "malfunctionAD",malfunctionAD, distribution = function() rnorm(1 ,103.736803, 5.950731), mon = 2)%>%
+# add_generator( "malfunctionEJ",malfunctionEJ, distribution = function() rexp(1, rate =0.008014166), mon = 2)
+# # add_generator( "reFillInventoryA", needRefill, at(now(mamara)), mon = 2, priority = 1 , preemptible = 1)
+
+
+##----------------------------------------- 6.  reset, run, plots, outputs ------------------------------------------------
+set.seed(456)
+reset(mamara)%>%  simmer::run(simulationTime)
+
+resdata <- get_mon_resources(mamara)
+arrdata <- get_mon_arrivals(mamara)
+attdata <- get_mon_attributes(mamara)
+
+
